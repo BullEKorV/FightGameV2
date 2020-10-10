@@ -7,22 +7,16 @@ namespace Fight
 {
     class Program
     {
-        static List<string> attackTypes = new List<string>() { "light", "heavy", "magic", "heal", "stun" };
         static Random rnd = new Random();
-        static bool versus;
-        static bool player1Turn;
-        static string playerTurn;
-        static string p1Name;
-        static string p2Name;
-        static int maxHealthPlayers;
-        static float p1Health;
-        static float p2Health;
-        static float inflictedDamage;
-        static float selfDamage;
-        static bool stunnedSelf;
-        static bool stunnedOpponent;
-        static bool p1Stunned;
-        static bool p2Stunned;
+        static List<string> attackTypes = new List<string>() { "light", "heavy", "magic", "heal", "stun" };
+        static string attackType;
+        static int maxPlayers;
+        static List<string> playerNames = new List<string>();
+        static List<int> playerHealth = new List<int>();
+        static List<bool> isHuman = new List<bool>();
+        static List<bool> isStunned = new List<bool>();
+        static int currentPlayer;
+        static int targetPlayer;
         static bool endApp = false;
         static bool gameActive = true;
 
@@ -30,19 +24,10 @@ namespace Fight
         {
             while (!endApp)
             {
-                //setup the game settings
                 Setup();
-
-                //reset game data
-                player1Turn = true;
-                p1Health = maxHealthPlayers;
-                p2Health = maxHealthPlayers;
-                gameActive = true;
-
 
                 while (gameActive)
                 {
-                    //StatusBar();
                     GameLogic();
                 }
             }
@@ -53,83 +38,68 @@ namespace Fight
             int x = Console.CursorLeft;
             int y = Console.CursorTop;
             Console.CursorTop = Console.WindowTop;
-            Console.CursorLeft = Console.WindowLeft + (Console.WindowWidth / 7) * 2;
-            Console.Write($"{p1Name}'s health: ");
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.Write(p1Health + " ");
-            Console.ResetColor();
-            Console.CursorLeft += 10;
-            Console.Write($"{p2Name}'s health: ");
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(p2Health + " ");
-            Console.ResetColor();
+            Console.CursorLeft = Console.WindowLeft;
+            for (int i = 0; i < maxPlayers; i++)
+            {
+                Console.Write($"{playerNames[i]}'s health: ");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write(playerHealth[i] + " ");
+                Console.ResetColor();
+            }
+
             // Restore previous position
             Console.SetCursorPosition(x, y + 2);
         }
         static void GameLogic()
         {
             Console.Clear();
+
             //player 1
-            if (player1Turn)
-            {
-                StatusBar();
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.Write(p1Name);
-                Console.ResetColor();
-                Console.WriteLine("'s turn!\n");
-                //player attack script
-                if (!p1Stunned) PlayerAttack();
-                //stun script
-                p1Stunned = false;
-                if (stunnedSelf) p1Stunned = true;
-                else if (stunnedOpponent) p2Stunned = true;
-                //player calculate health
-                p2Health -= inflictedDamage;
-                p1Health += selfDamage;
-                StatusBar();
 
-                CheckLose();
-                Console.Write("\nContinue...");
-                stunnedOpponent = false;
-                stunnedSelf = false;
-            }
-            //player 2 or bot
-            else if (!player1Turn)
-            {
-                StatusBar();
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.Write(p2Name);
-                Console.ResetColor();
-                Console.WriteLine("'s turn!\n");
-                //player attack script
-                if (!p2Stunned)
-                {
-                    if (versus) PlayerAttack();
-                    else BotAttack();
-                }
-                p2Stunned = false;
-                if (stunnedSelf) p1Stunned = true;
-                else if (stunnedOpponent) p2Stunned = true;
-                p1Health -= inflictedDamage;
-                p2Health += selfDamage;
-                StatusBar();
+            StatusBar();
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.Write(playerNames[currentPlayer]);
+            Console.ResetColor();
+            Console.WriteLine("'s turn!\n");
 
-                CheckLose();
-                Console.Write("\nContinue...");
-                stunnedOpponent = false;
-                stunnedSelf = false;
-            }
+            //player attack script
+            Console.WriteLine(currentPlayer);
+            Console.Write(playerNames.Count);
+            Console.Write(playerHealth.Count);
+            Console.Write(isHuman.Count);
+            Console.Write(isStunned.Count);
+            if (isHuman[currentPlayer]) PlayerAttack();
+            else if (!isHuman[currentPlayer]) BotAttack();
+
+            StatusBar();
+
+            CheckLose();
+            Console.Write("\nContinue...");
         }
+
         static void PlayerAttack()
         {
-            inflictedDamage = 0;
-            selfDamage = 0;
+            Console.WriteLine("Who do you wanna attack?");
+            Console.Write("Available players: ");
+            //choose what attack
+            foreach (string i in playerNames) Console.Write($"{i}, ");
+            Console.WriteLine("");
+            string response = "";
+            response = Console.ReadLine();
+            while (!playerNames.Contains(response))
+            {
+                Console.Write("Available players: ");
+                foreach (string i in playerNames) Console.Write($"{i}, ");
+                Console.WriteLine("");
+                response = Console.ReadLine();
+            }
+            targetPlayer = playerNames.IndexOf(response);
             Console.WriteLine("What attack do you wanna perform?");
             Console.Write("Available attacks: ");
             //choose what attack
             foreach (string i in attackTypes) Console.Write($"{i}, ");
             Console.WriteLine("");
-            string attackType = Console.ReadLine().ToLower();
+            attackType = Console.ReadLine().ToLower();
             while (!attackTypes.Contains(attackType))
             {
                 Console.Write("Available attacks: ");
@@ -138,6 +108,26 @@ namespace Fight
                 attackType = Console.ReadLine().ToLower();
             }
             Console.WriteLine("");
+            AttackScript();
+        }
+        static void BotAttack()
+        {
+            targetPlayer = rnd.Next(0, maxPlayers);
+            while (targetPlayer == currentPlayer)
+            {
+                targetPlayer = rnd.Next(0, maxPlayers);
+            }
+            int attackTypeInt = rnd.Next(0, 17);
+            if (attackTypeInt >= 0 && attackTypeInt <= 4) attackType = "light";
+            else if (attackTypeInt >= 5 && attackTypeInt <= 7) attackType = "heavy";
+            else if (attackTypeInt >= 8 && attackTypeInt <= 10) attackType = "magic";
+            else if (attackTypeInt >= 11 && attackTypeInt <= 14) attackType = "heal";
+            else if (attackTypeInt >= 15 && attackTypeInt <= 16) attackType = "stun";
+            AttackScript();
+        }
+        static void AttackScript()
+        {
+            int damage = 0;
             switch (attackType)
             {
                 //light attack
@@ -145,14 +135,14 @@ namespace Fight
                     int hitChance = rnd.Next(0, 10);
                     if (hitChance < 9)
                     {
-                        inflictedDamage = rnd.Next(3, 6);
+                        damage = rnd.Next(3, 6);
                         int critChance = rnd.Next(0, 5);
                         if (critChance == 0)
                         {
-                            inflictedDamage *= 2;
-                            Console.Write("Your light attack hit dealing ");
+                            damage *= 2;
+                            Console.Write($"Your light attack hit {playerNames[targetPlayer]} dealing ");
                             Console.ForegroundColor = ConsoleColor.Magenta;
-                            Console.Write(inflictedDamage);
+                            Console.Write(damage);
                             Console.ResetColor();
                             Console.WriteLine(" in critical damage!");
                         }
@@ -160,10 +150,11 @@ namespace Fight
                         {
                             Console.Write("Your light attack dealt ");
                             Console.ForegroundColor = ConsoleColor.Red;
-                            Console.Write(inflictedDamage);
+                            Console.Write(damage);
                             Console.ResetColor();
-                            Console.WriteLine(" damage");
+                            Console.WriteLine($" damage to {playerNames[targetPlayer]}");
                         }
+                        playerHealth[targetPlayer] -= damage;
                     }
                     else Console.WriteLine("Your attack missed!");
                     break;
@@ -172,140 +163,82 @@ namespace Fight
                     hitChance = rnd.Next(0, 16);
                     if (hitChance < 8)
                     {
-                        inflictedDamage = rnd.Next(7, 10);
+                        damage = rnd.Next(7, 10);
                         int critChance = rnd.Next(0, 10);
                         if (critChance == 0)
                         {
-                            inflictedDamage *= 2;
+                            damage *= 2;
                             Console.Write("Your heavy attack hit dealing ");
                             Console.ForegroundColor = ConsoleColor.Magenta;
-                            Console.Write(inflictedDamage);
+                            Console.Write(damage);
                             Console.ResetColor();
-                            Console.WriteLine(" in critical damage!");
+                            Console.WriteLine($" in critical damage to {playerNames[targetPlayer]}!");
                         }
                         else
                         {
                             Console.Write("Your heavy attack dealt ");
                             Console.ForegroundColor = ConsoleColor.Red;
-                            Console.Write(inflictedDamage);
+                            Console.Write(damage);
                             Console.ResetColor();
-                            Console.WriteLine(" damage");
+                            Console.WriteLine($" damage to {playerNames[targetPlayer]}");
                         }
+                        playerHealth[targetPlayer] -= damage;
                     }
                     else Console.WriteLine("Your attack missed!");
                     break;
                 case "magic":
                     //magic attack
-                    inflictedDamage = rnd.Next(6, 10);
+                    damage = rnd.Next(6, 10);
                     hitChance = rnd.Next(0, 5);
                     if (hitChance < 4)
                     {
                         Console.Write("Your magic spell inflicted ");
                         Console.ForegroundColor = ConsoleColor.Red;
-                        Console.Write(inflictedDamage);
+                        Console.Write(damage);
                         Console.ResetColor();
-                        Console.WriteLine(" damage to your opponent!");
+                        Console.WriteLine($" damage to {playerNames[targetPlayer]}!");
+                        playerHealth[targetPlayer] -= damage;
                     }
                     else
                     {
+                        damage *= 2;
                         Console.Write("Your accidentally hit yourself with magic and lost ");
                         Console.ForegroundColor = ConsoleColor.Red;
-                        Console.Write(inflictedDamage * 2);
+                        Console.Write(damage);
                         Console.ResetColor();
                         Console.WriteLine(" in self damage!");
-                        selfDamage = -inflictedDamage * 2;
-                        inflictedDamage = 0;
+                        playerHealth[currentPlayer] -= damage;
                     }
                     break;
                 case "heal":
                     //healing yourself
-                    selfDamage = rnd.Next(1, 8);
+                    damage = rnd.Next(1, 8);
                     Console.Write("You healed yourself for ");
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.Write(selfDamage);
+                    Console.Write(damage);
                     Console.ResetColor();
                     Console.WriteLine(" health");
+                    playerHealth[currentPlayer] += damage;
                     break;
-                case "stun":
+                /*case "stun":
                     hitChance = rnd.Next(0, 4);
                     if (hitChance <= 1)
                     {
                         Console.WriteLine("Succesfully stunned opponent");
-                        stunnedOpponent = true;
+                        if (currentPlayer == p1Name) p2Stunned = true;
+                        else if (currentPlayer == p2Name) p1Stunned = true;
                     }
                     else if (hitChance == 3)
                     {
                         Console.WriteLine("You stunned yourself");
-                        stunnedSelf = true;
+                        if (currentPlayer == p1Name) p1Stunned = true;
+                        else if (currentPlayer == p2Name) p2Stunned = true;
                     }
+                    break;*/
+                default:
+                    Console.WriteLine("No attack selected");
                     break;
             }
-        }
-        static int BotAttack()
-        {
-            int damage;
-            int attackType = rnd.Next(0, 10);
-            //light attack
-            if (attackType >= 0 && attackType <= 6)
-            {
-                Console.Write($"{p2Name} used a light attack\n");
-                int hitChance = rnd.Next(0, 10);
-                if (hitChance < 9)
-                {
-                    damage = rnd.Next(1, 5);
-                    int critChance = rnd.Next(0, 8);
-                    if (critChance == 0)
-                    {
-                        damage *= 2;
-                        Console.Write($"{p2Name}'s light attack hit dealing ");
-                        Console.ForegroundColor = ConsoleColor.Magenta;
-                        Console.Write(damage);
-                        Console.ResetColor();
-                        Console.WriteLine(" in critical damage!");
-                    }
-                    else
-                    {
-                        Console.Write($"{p2Name}'s light attack dealt ");
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.Write(damage);
-                        Console.ResetColor();
-                        Console.WriteLine(" damage");
-                    }
-                    return damage;
-                }
-                else Console.WriteLine($"{p2Name}'s attack missed!");
-            }
-            //heavy attack
-            else if (attackType >= 7 && attackType <= 9)
-            {
-                Console.Write($"{p2Name} used a heavy attack\n");
-                int hitChance = rnd.Next(0, 15);
-                if (hitChance < 8)
-                {
-                    damage = rnd.Next(5, 10);
-                    int critChance = rnd.Next(0, 12);
-                    if (critChance == 0)
-                    {
-                        damage *= 2;
-                        Console.Write($"{p2Name}'s heavy attack hit dealing ");
-                        Console.ForegroundColor = ConsoleColor.Magenta;
-                        Console.Write(damage);
-                        Console.ResetColor();
-                        Console.WriteLine(" in critical damage!");
-                    }
-                    else
-                    {
-                        Console.Write($"{p2Name}'s heavy attack dealt ");
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.Write(damage);
-                        Console.ResetColor();
-                        Console.WriteLine(" damage");
-                    }
-                    return damage;
-                }
-                else Console.WriteLine($"{p2Name}'s attack missed!");
-            }
-            return 0;
         }
 
         static bool CheckHealth(float x)
@@ -318,11 +251,16 @@ namespace Fight
         }
         static void CheckLose()
         {
-            if (CheckHealth(p1Health) || CheckHealth(p2Health))
+            for (int i = 0; i < maxPlayers; i++)
             {
-                if (CheckHealth(p1Health)) Console.WriteLine($"{p1Name} lost");
-                else if (CheckHealth(p2Health)) Console.WriteLine($"{p2Name} lost");
-                else Console.WriteLine("You shouldn't be seeing this");
+                if (playerHealth[i] <= 0)
+                {
+                    Console.WriteLine($"{playerNames[i]} lost the game!");
+                    gameActive = false;
+                }
+            }
+            if (!gameActive)
+            {
                 Console.WriteLine("Do you want to play again? y/n?");
                 string response = Console.ReadLine().ToLower();
                 while (!(response == "y" || response == "n"))
@@ -331,36 +269,46 @@ namespace Fight
                     response = Console.ReadLine().ToLower();
                 }
                 if (response == "n") endApp = true;
-                gameActive = false;
             }
-            else
+            else if (gameActive)
             {
                 Console.ReadKey();
-                player1Turn = !player1Turn;
+                if (currentPlayer < maxPlayers - 1) currentPlayer++;
+                else currentPlayer = 0;
+                Console.WriteLine(currentPlayer);
             }
         }
         static void Setup()
         {
+            //reset values
+            playerNames.Clear();
+            playerHealth.Clear();
+            isHuman.Clear();
+            isStunned.Clear();
+            currentPlayer = 0;
+            gameActive = true;
+
+            //setup the game
             Console.Clear();
             Console.WriteLine("Welcome to fight!");
             //choose opponent
-            Console.WriteLine("How do you want to play? Against another player or bot?");
-            Console.WriteLine("Enter player/bot: ");
-            string response = Console.ReadLine().ToLower();
-            while (!(response == "bot" || response == "player"))
+            Console.WriteLine("How many players?");
+            Console.WriteLine("Enter amount of players: ");
+            string response = Console.ReadLine();
+            while (!int.TryParse(response, out maxPlayers))
             {
-                Console.WriteLine("Please enter player/bot");
-                response = Console.ReadLine().ToLower();
+                Console.WriteLine("Please enter a number");
+                response = Console.ReadLine();
             }
-            if (response == "player") versus = true;
-            else
+            maxPlayers = int.Parse(response);
+            for (int i = 0; i < maxPlayers; i++)
             {
-                versus = false;
-                p2Name = "Opponent";
+                isStunned.Add(false);
             }
             //select max health for players
             Console.WriteLine("How much hp do you wanna play with? Leave blank if standard");
             response = Console.ReadLine();
+            int maxHealthPlayers;
             while (!int.TryParse(response, out maxHealthPlayers))
             {
                 if ((response == "" || response == " ")) break;
@@ -370,22 +318,29 @@ namespace Fight
             if (response == "" || response == " ") maxHealthPlayers = 50;
             else maxHealthPlayers = int.Parse(response);
 
-            //choose names
-            Console.WriteLine("Enter Player 1's name");
-            p1Name = Console.ReadLine();
-            while (p1Name.Length > 12 || p1Name.Length < 3)
+            for (int i = 0; i < maxPlayers; i++)
             {
-                Console.WriteLine("Name cannot be shorter than 3 characters or longer than 12.");
-                p1Name = Console.ReadLine();
+                playerHealth.Add(maxHealthPlayers);
             }
-            if (versus)
+            //choose names
+            for (int i = 0; i < maxPlayers; i++)
             {
-                Console.WriteLine("Enter Player 2's name");
-                p2Name = Console.ReadLine();
-                while (p2Name.Length > 12 || p2Name.Length < 3)
+                Console.WriteLine($"Enter Player {i + 1}'s name or leave blank for bot");
+                response = Console.ReadLine().ToLower();
+                while ((response.Length > 10 || response.Length < 3) && response != "")
                 {
                     Console.WriteLine("Name cannot be shorter than 3 characters or longer than 12.");
-                    p2Name = Console.ReadLine();
+                    response = Console.ReadLine();
+                }
+                if (response == "")
+                {
+                    playerNames.Add("Bot " + (i + 1));
+                    isHuman.Add(false);
+                }
+                else
+                {
+                    playerNames.Add(response);
+                    isHuman.Add(true);
                 }
             }
         }
