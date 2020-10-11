@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
 
 namespace Fight
 {
@@ -9,12 +7,12 @@ namespace Fight
     {
         static Random rnd = new Random();
         static List<string> attackTypes = new List<string>() { "light", "heavy", "magic", "heal", "stun" };
-        static string attackType;
         static int maxPlayers;
         static List<string> playerNames = new List<string>();
         static List<int> playerHealth = new List<int>();
         static List<bool> isHuman = new List<bool>();
         static List<bool> isStunned = new List<bool>();
+        static List<bool> isDead = new List<bool>();
         static int currentPlayer;
         static int targetPlayer;
         static bool endApp = false;
@@ -42,6 +40,7 @@ namespace Fight
             for (int i = 0; i < maxPlayers; i++)
             {
                 if (isStunned[i]) Console.ForegroundColor = ConsoleColor.Red;
+                else if (isDead[i]) Console.ForegroundColor = ConsoleColor.DarkGray;
                 Console.Write(playerNames[i]);
                 Console.ResetColor();
                 Console.Write("'s health: ");
@@ -77,7 +76,7 @@ namespace Fight
             }
             StatusBar();
 
-            if (!isStunned[currentPlayer])
+            if (!isStunned[currentPlayer] && !isDead[currentPlayer])
             {
                 if (isHuman[currentPlayer]) PlayerAttack();
                 else if (!isHuman[currentPlayer]) BotAttack();
@@ -91,27 +90,12 @@ namespace Fight
 
         static void PlayerAttack()
         {
-            Console.WriteLine("Who do you wanna attack?");
-            Console.Write("Available players: ");
-            //choose what attack
-            foreach (string i in playerNames) Console.Write($"{i}, ");
-            Console.WriteLine("");
-            string response = "";
-            response = Console.ReadLine();
-            while (!playerNames.Contains(response))
-            {
-                Console.Write("Available players: ");
-                foreach (string i in playerNames) Console.Write($"{i}, ");
-                Console.WriteLine("");
-                response = Console.ReadLine();
-            }
-            targetPlayer = playerNames.IndexOf(response);
+            //choose attack to perform
             Console.WriteLine("What attack do you wanna perform?");
             Console.Write("Available attacks: ");
-            //choose what attack
-            foreach (string i in attackTypes) Console.Write($"{i}, ");
+            foreach (string i in attackTypes) Console.Write($"| {i} ");
             Console.WriteLine("");
-            attackType = Console.ReadLine().ToLower();
+            string attackType = Console.ReadLine().ToLower();
             while (!attackTypes.Contains(attackType))
             {
                 Console.Write("Available attacks: ");
@@ -119,24 +103,49 @@ namespace Fight
                 Console.WriteLine("");
                 attackType = Console.ReadLine().ToLower();
             }
+
+            //choose who to attack
+            Console.WriteLine("\nWho do you wanna attack?");
+            Console.Write("Available players: ");
+            for (int i = 0; i < maxPlayers; i++)
+            {
+                Console.Write($"| {i + 1}. {playerNames[i]} ");
+                if (i == currentPlayer) Console.Write("(you) ");
+            }
             Console.WriteLine("");
-            AttackScript();
+            string response = "";
+            response = Console.ReadLine();
+            while (!playerNames.Contains(response) && !(int.TryParse(response, out targetPlayer)))
+            {
+                Console.Write("Available players: ");
+                for (int i = 0; i < maxPlayers; i++)
+                {
+                    if (i != currentPlayer) Console.Write($"| {i}. {playerNames[i]} ");
+                }
+                Console.WriteLine("");
+                response = Console.ReadLine();
+            }
+            if (int.TryParse(response, out targetPlayer)) targetPlayer = int.Parse(response) - 1;
+            else targetPlayer = playerNames.IndexOf(response);
+            Console.WriteLine("");
+            AttackScript(attackType);
         }
         static void BotAttack()
         {
+            string attackType = "";
             //choose target player
             targetPlayer = rnd.Next(0, maxPlayers);
-            while (targetPlayer == currentPlayer) targetPlayer = rnd.Next(0, maxPlayers);
+            while (targetPlayer == currentPlayer || isDead[targetPlayer]) targetPlayer = rnd.Next(0, maxPlayers);
             //choose attack
-            int attackTypeInt = rnd.Next(0, 17);
+            int attackTypeInt = rnd.Next(0, 16);
             if (attackTypeInt >= 0 && attackTypeInt <= 4) attackType = "light";
             else if (attackTypeInt >= 5 && attackTypeInt <= 7) attackType = "heavy";
             else if (attackTypeInt >= 8 && attackTypeInt <= 10) attackType = "magic";
-            else if (attackTypeInt >= 11 && attackTypeInt <= 14) attackType = "heal";
-            else if (attackTypeInt >= 15 && attackTypeInt <= 16) attackType = "stun";
-            AttackScript();
+            else if (attackTypeInt >= 11 && attackTypeInt <= 13) attackType = "heal";
+            else if (attackTypeInt >= 14 && attackTypeInt <= 15) attackType = "stun";
+            AttackScript(attackType);
         }
-        static void AttackScript()
+        static void AttackScript(string attackType)
         {
             int damage = 0;
             switch (attackType)
@@ -174,7 +183,7 @@ namespace Fight
                     hitChance = rnd.Next(0, 16);
                     if (hitChance < 8)
                     {
-                        damage = rnd.Next(7, 10);
+                        damage = rnd.Next(9, 13);
                         int critChance = rnd.Next(0, 10);
                         if (critChance == 0)
                         {
@@ -224,12 +233,24 @@ namespace Fight
                 case "heal":
                     //healing yourself
                     damage = rnd.Next(2, 8);
-                    Console.Write("You healed yourself for ");
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.Write(damage);
-                    Console.ResetColor();
-                    Console.WriteLine(" health");
-                    playerHealth[currentPlayer] += damage;
+                    if (!isHuman[currentPlayer]) targetPlayer = currentPlayer;
+                    if (currentPlayer == targetPlayer)
+                    {
+                        Console.Write("You healed yourself for ");
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.Write(damage);
+                        Console.ResetColor();
+                        Console.WriteLine(" health");
+                    }
+                    else if (currentPlayer != targetPlayer)
+                    {
+                        Console.Write($"You healed {playerNames[targetPlayer]} for ");
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.Write(damage);
+                        Console.ResetColor();
+                        Console.WriteLine(" health");
+                    }
+                    playerHealth[targetPlayer] += damage;
                     break;
                 case "stun":
                     hitChance = rnd.Next(0, 3);
@@ -267,13 +288,23 @@ namespace Fight
         }
         static void CheckLose()
         {
+            int playersLeft = maxPlayers;
             for (int i = 0; i < maxPlayers; i++)
             {
                 if (playerHealth[i] <= 0)
                 {
-                    Console.WriteLine($"{playerNames[i]} lost the game!");
-                    gameActive = false;
+                    playerHealth[i] = 0;
+                    if (!isDead[i]) Console.WriteLine($"{playerNames[i]} died!");
+                    isDead[i] = true;
+                    isStunned[i] = false;
+                    playersLeft--;
                 }
+            }
+            if (playersLeft == 1)
+            {
+                gameActive = false;
+                int winner = isDead.IndexOf(false);
+                Console.WriteLine($"\n{playerNames[winner]} won!");
             }
             if (!gameActive)
             {
@@ -301,6 +332,7 @@ namespace Fight
             playerHealth.Clear();
             isHuman.Clear();
             isStunned.Clear();
+            isDead.Clear();
             currentPlayer = 0;
             gameActive = true;
 
@@ -320,6 +352,7 @@ namespace Fight
             for (int i = 0; i < maxPlayers; i++)
             {
                 isStunned.Add(false);
+                isDead.Add(false);
             }
             //select max health for players
             Console.WriteLine("How much hp do you wanna play with? Leave blank if standard");
@@ -350,7 +383,7 @@ namespace Fight
                 }
                 if (response == "")
                 {
-                    playerNames.Add("Bot " + (i + 1));
+                    playerNames.Add("bot " + (i + 1));
                     isHuman.Add(false);
                 }
                 else
