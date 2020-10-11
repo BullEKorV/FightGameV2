@@ -41,14 +41,17 @@ namespace Fight
             Console.CursorLeft = Console.WindowLeft;
             for (int i = 0; i < maxPlayers; i++)
             {
-                Console.Write($"{playerNames[i]}'s health: ");
+                if (isStunned[i]) Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write(playerNames[i]);
+                Console.ResetColor();
+                Console.Write("'s health: ");
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.Write(playerHealth[i] + " ");
+                Console.Write(playerHealth[i] + "       ");
                 Console.ResetColor();
             }
 
             // Restore previous position
-            Console.SetCursorPosition(x, y + 2);
+            Console.SetCursorPosition(x, y + 1);
         }
         static void GameLogic()
         {
@@ -58,18 +61,27 @@ namespace Fight
 
             StatusBar();
             Console.ForegroundColor = ConsoleColor.Blue;
-            Console.Write(playerNames[currentPlayer]);
+            Console.Write("\n" + playerNames[currentPlayer]);
             Console.ResetColor();
             Console.WriteLine("'s turn!\n");
 
-            //player attack script
-            Console.WriteLine(currentPlayer);
-            Console.Write(playerNames.Count);
-            Console.Write(playerHealth.Count);
-            Console.Write(isHuman.Count);
-            Console.Write(isStunned.Count);
-            if (isHuman[currentPlayer]) PlayerAttack();
-            else if (!isHuman[currentPlayer]) BotAttack();
+            if (isStunned[currentPlayer])
+            {
+                int recoveryRate = rnd.Next(0, 2);
+                if (recoveryRate == 0)
+                {
+                    isStunned[currentPlayer] = false;
+                    Console.WriteLine("You're no longer stunned");
+                }
+                else Console.WriteLine("You're still stunned");
+            }
+            StatusBar();
+
+            if (!isStunned[currentPlayer])
+            {
+                if (isHuman[currentPlayer]) PlayerAttack();
+                else if (!isHuman[currentPlayer]) BotAttack();
+            }
 
             StatusBar();
 
@@ -112,11 +124,10 @@ namespace Fight
         }
         static void BotAttack()
         {
+            //choose target player
             targetPlayer = rnd.Next(0, maxPlayers);
-            while (targetPlayer == currentPlayer)
-            {
-                targetPlayer = rnd.Next(0, maxPlayers);
-            }
+            while (targetPlayer == currentPlayer) targetPlayer = rnd.Next(0, maxPlayers);
+            //choose attack
             int attackTypeInt = rnd.Next(0, 17);
             if (attackTypeInt >= 0 && attackTypeInt <= 4) attackType = "light";
             else if (attackTypeInt >= 5 && attackTypeInt <= 7) attackType = "heavy";
@@ -156,7 +167,7 @@ namespace Fight
                         }
                         playerHealth[targetPlayer] -= damage;
                     }
-                    else Console.WriteLine("Your attack missed!");
+                    else Console.WriteLine("Your light attack missed!");
                     break;
                 case "heavy":
                     //heavy attack
@@ -184,7 +195,7 @@ namespace Fight
                         }
                         playerHealth[targetPlayer] -= damage;
                     }
-                    else Console.WriteLine("Your attack missed!");
+                    else Console.WriteLine("Your heavy attack missed!");
                     break;
                 case "magic":
                     //magic attack
@@ -212,7 +223,7 @@ namespace Fight
                     break;
                 case "heal":
                     //healing yourself
-                    damage = rnd.Next(1, 8);
+                    damage = rnd.Next(2, 8);
                     Console.Write("You healed yourself for ");
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.Write(damage);
@@ -220,21 +231,26 @@ namespace Fight
                     Console.WriteLine(" health");
                     playerHealth[currentPlayer] += damage;
                     break;
-                /*case "stun":
-                    hitChance = rnd.Next(0, 4);
-                    if (hitChance <= 1)
+                case "stun":
+                    hitChance = rnd.Next(0, 3);
+                    if (hitChance == 0)
                     {
-                        Console.WriteLine("Succesfully stunned opponent");
-                        if (currentPlayer == p1Name) p2Stunned = true;
-                        else if (currentPlayer == p2Name) p1Stunned = true;
+                        Console.WriteLine($"Succesfully stunned {playerNames[targetPlayer]}");
+                        isStunned[targetPlayer] = true;
+
                     }
-                    else if (hitChance == 3)
+                    else if (hitChance > 0)
                     {
-                        Console.WriteLine("You stunned yourself");
-                        if (currentPlayer == p1Name) p1Stunned = true;
-                        else if (currentPlayer == p2Name) p2Stunned = true;
+                        damage = rnd.Next(3, 6);
+                        Console.Write("You accidentally stunned yourself and hit yourself for ");
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.Write(damage);
+                        Console.ResetColor();
+                        Console.WriteLine(" health");
+                        playerHealth[currentPlayer] -= damage;
+                        isStunned[currentPlayer] = true;
                     }
-                    break;*/
+                    break;
                 default:
                     Console.WriteLine("No attack selected");
                     break;
